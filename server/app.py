@@ -31,5 +31,32 @@ def login():
     else:
         return jsonify({"status":"error","message":"Invalid credentials"}),401
     
+@app.route("/api/my_loans/<int:user_id>", methods=["GET"])
+def my_loans(user_id):
+    conn = db_connection()
+    try:
+        loans = conn.execute("""
+            SELECT
+                I.Title,
+                I.Author,
+                T.TypeName,
+                L.CheckoutDate,
+                L.DueDate
+            FROM Loans L
+            JOIN Items I ON L.ItemID = I.ItemID
+            JOIN ItemTypes T ON I.ItemTypeID = T.ItemTypeID
+            WHERE L.UserID = ? AND L.ReturnDate IS NULL
+            ORDER BY L.DueDate ASC
+        """, (user_id,)).fetchall()
+        
+        loans_list = [dict(row) for row in loans]
+        
+        return jsonify(loans_list)
+
+    except sqlite3.OperationalError as e:
+        print(f"Database error: {e}")
+        return jsonify({"error": "Database query failed"}), 500
+    finally:
+        conn.close()
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
