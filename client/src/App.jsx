@@ -1,6 +1,4 @@
 import React,{ useState,useEffect } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
 import './App.css'
 import axios from 'axios'
 
@@ -12,8 +10,21 @@ function App() {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [userId, setUserId] = useState(null)
+  const [loans,setLoans] = useState([])
 
-
+  useEffect(() => {
+    if (userId) {
+        axios.get(`${API_BASE_URL}/my_loans/${userId}`)
+            .then(response => {
+                setLoans(response.data)
+            })
+            .catch(err => {
+                console.error("Error fetching loans:", err)
+            })
+    }
+  }, [userId])
+  
   const handleLogin = async(e) => {
     e.preventDefault()
     setLoading(true)
@@ -26,8 +37,9 @@ function App() {
       })
     if (response.data.status == 'success'){
       setUser(response.data.username)
+      setUserId(response.data.user_id)
     } else{
-      setError('Login failed: ', response.daat.message)
+      setError('Login failed: ', response.data.message)
     }}
     catch (err) {
       setError('Invalid username or password. Check console for  details')
@@ -36,6 +48,14 @@ function App() {
     finally{
       setLoading(false)
     }
+  }
+
+  const handleLogout = () =>{
+    setUser(null)
+    setUserId(null)
+    setLoans([])
+    setUsername('')
+    setPassword('')
   }
   if (!user) {
     return (
@@ -74,24 +94,82 @@ function App() {
     <div style={styles.dashboardContainer}>
       <div style={styles.dashboardHeader}>
         <h1 style={styles.header}>Welcome, {user}!</h1>
-        <button onClick={() => setUser(null)} style={styles.logoutButton}>
+        <button onClick={handleLogout} style={styles.logoutButton}>
           Log Out
         </button>
       </div>
+      {username!=="admin_user" ? (
+        <><p style={{ fontSize: '1.2em', color: '#007bff' }}>
+          Your Active Rental.
+        </p><div style={{ marginTop: '20px' }}>
+            {loans.length === 0 ? (
+              <p style={{ color: '#f5f1f1ff' }}>No items currently checked out.</p>
+            ) : (
+              <table style={styles.table}>
+                <thead>
+                  <tr>
+                    <th style={styles.th}>Title</th>
+                    <th style={styles.th}>Author</th>
+                    <th style={styles.th}>Type</th>
+                    <th style={styles.th}>Due Date</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {loans.map((loan, index) => (
+                    <tr key={index}>
+                      <td style={styles.td}>{loan.Title}</td>
+                      <td style={styles.td}>{loan.Author}</td>
+                      <td style={styles.td}>{loan.TypeName}</td>
+                      <td style={styles.td}>{loan.DueDate}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+            </div>
+          </>
+            ):(
 
-      <p style={{fontSize: '1.2em', color: '#007bff'}}>
-        User authentication successful. This view is now protected.
-      </p>
-      
-      <p style={{marginTop: '20px', color: '#ebe8e8ff'}}>
-        
-      </p>
-      
-    </div>
+              <>
+            <p style={{ fontSize: '1.2em', color: '#007bff' }}>
+              Total Active Rentals.
+            </p>
+
+            <div style={{ marginTop: '20px' }}>
+              {loans.length === 0 ? (
+                <p style={{ color: '#f5f1f1ff' }}>No items currently checked out.</p>
+              ) : (
+                <table style={styles.table}>
+                  <thead>
+                    <tr>
+                      <th style={styles.th}>Title</th>
+                      <th style={styles.th}>Author</th>
+                      <th style={styles.th}>Type</th>
+                      <th style={styles.th}>Due Date</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {loans.map((loan, index) => (
+                      <tr key={index}>
+                        <td style={styles.td}>{loan.Title}</td>
+                        <td style={styles.td}>{loan.Author}</td>
+                        <td style={styles.td}>{loan.TypeName}</td>
+                        <td style={styles.td}>{loan.DueDate}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+              </div>
+              </>
+              )}
+
+            </div>
   );
 }
 // Simple inline styles for better visuals
 const styles = {
+
   container: {
     maxWidth: '400px',
     margin: '50px auto',
@@ -145,6 +223,6 @@ const styles = {
     border: '1px solid #6c3838ff',
     backgroundColor: '#007bff',
     cursor: 'pointer',
-  },
-};
-export default App
+  }
+}
+export default App;
