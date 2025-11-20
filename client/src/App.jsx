@@ -59,7 +59,7 @@ function App() {
             datasets: [{
                 label: 'Books Count',
                 data: res.data.map(item => item.value),
-                backgroundColor: ['#28a745', '#dc3545', '#4335dcff'], 
+                backgroundColor: ['#28a745', '#dc3545'], 
                 borderWidth: 1,
             }]
         });

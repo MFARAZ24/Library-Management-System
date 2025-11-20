@@ -218,8 +218,9 @@ def book_chart():
     try:
 
         status = conn.execute("""SELECT Status, COUNT(ItemID) as Count
-                                 FROM Items 
-                                 GROUP BY Status""").fetchall()
+                                 FROM Items
+                                 WHERE Status IN ('Available', 'On Loan')    
+                                 GROUP BY Status """).fetchall()
         conn.commit()
         stats_list = [{"label":row["Status"], "value":row["Count"]} for row in status]
         return jsonify(stats_list)
