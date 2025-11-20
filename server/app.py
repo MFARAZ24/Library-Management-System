@@ -126,6 +126,7 @@ def CRUD():
                                   """,(current_date,loan_id))
             if item_id:
                 conn.execute("UPDATE Items SET Status = 'Available' WHERE ItemID = ?", (item_id,))
+                conn.execute("UPDATE Fines SET Status = 'Paid' WHERE LoanID = ?", (loan_id,))
 
             conn.commit()
             return jsonify({"status": "success", "returned_date": current_date})
@@ -192,6 +193,41 @@ def checkout():
         return jsonify({"status": "error", "message": str(e)}), 500
     finally:
         conn.close()
+
+
+@app.route("/api/books/<int:item_id>", methods=['DELETE'])
+def delete_book(item_id):
+    conn = db_connection()
+    try:
+
+        status = conn.execute("SELECT Status FROM Items WHERE ItemID = ?", (item_id,)).fetchone()
+        if status and status['Status'] == 'On Loan':
+            return jsonify({"status": "error", "message": "Cannot delete book while it is on loan."}), 400
+
+        conn.execute("DELETE FROM Items WHERE ItemID = ?", (item_id,))
+        conn.commit()
+        return jsonify({"status": "success"})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+    finally:
+        conn.close()
+
+@app.route("/api/stats", methods=['GET'])
+def book_chart():
+    conn = db_connection()
+    try:
+
+        status = conn.execute("""SELECT Status, COUNT(ItemID) as Count
+                                 FROM Items 
+                                 GROUP BY Status""").fetchall()
+        conn.commit()
+        stats_list = [{"label":row["Status"], "value":row["Count"]} for row in status]
+        return jsonify(stats_list)
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+    finally:
+        conn.close()
+
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)

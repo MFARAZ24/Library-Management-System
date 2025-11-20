@@ -14,6 +14,18 @@ function App() {
   const [loans,setLoans] = useState([])
   const [books, setBooks] = useState([])
 
+
+  useEffect(() => {
+  const loggedInUser = localStorage.getItem("user");
+  const loggedInUserId = localStorage.getItem("userId");
+  
+  if (loggedInUser && loggedInUserId) {
+    setUser(loggedInUser);
+    setUserId(loggedInUserId);
+    setUsername(loggedInUser);
+  }
+}, []);
+
   useEffect(() => {
     if (userId) {
         fetchLoans();
@@ -33,27 +45,6 @@ function App() {
         .catch(err => console.error("Error fetching catalog:", err));
   }
   
-  useEffect(() => {
-    const loggedInUser = localStorage.getItem("user");
-    const loggedInUserId = localStorage.getItem("userId");
-    
-    if (loggedInUser && loggedInUserId) {
-      setUser(loggedInUser);
-      setUserId(loggedInUserId);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (userId) {
-        axios.get(`${API_BASE_URL}/my_loans/${userId}`)
-            .then(response => {
-                setLoans(response.data)
-            })
-            .catch(err => {
-                console.error("Error fetching loans:", err)
-            })
-    }
-  }, [userId])
   
   const handleLogin = async(e) => {
     e.preventDefault()
@@ -106,12 +97,13 @@ function App() {
       alert("Book returned!")
       const newDate = response.data.current_date;
       setLoans(prevLoans => prevLoans.map(loan => {
-            if (loan.LoanID === id) {
+            if (loan.LoanID === loan_id) {
                 return { ...loan, ReturnDate: newDate };
             }
             return loan;
         }))
-        //fetchCatalog();
+        fetchCatalog();
+        fetchLoans();
       }else{
             setError(`Update failed:${response.data.message}`)
           }
@@ -122,7 +114,7 @@ function App() {
         }
       }
 
-  const handleBorrow = async(item_id,default_period,) => {
+  const handleBorrow = async(item_id,default_period) => {
       try {
           const res = await axios.post(`${API_BASE_URL}/checkout`, { user_id: userId, item_id: item_id,default_period:default_period});
           if (res.data.status === 'success') {
@@ -131,6 +123,21 @@ function App() {
               fetchCatalog(); 
           }
       } catch (err) { alert("Checkout failed") }
+  }
+
+
+  const handleDeleteBook = async(item_id) => {
+      if(!confirm("Are you sure you want to delete this book?")) return;
+      try {
+          const res = await axios.delete(`${API_BASE_URL}/books/${item_id}`);
+          if (res.data.status === 'success') {
+              alert("Book Deleted!");
+              fetchCatalog();
+              //if (username === 'admin_user') fetchStats();
+          }
+      } catch (err) { 
+          alert(err.response?.data?.message || "Delete failed");
+      }
   }
 
   if (!user) {
@@ -189,8 +196,8 @@ function App() {
                     <th style={styles.th}>Type</th>
                     <th style={styles.th}>Due Date</th>
                     <th style={styles.th}>Return Date</th>
-                    <th style={styles.th}>Fine Amount</th>
-                    <th style={styles.th}>Fine Status</th>
+                    <th style={styles.th}>Amount</th>
+                    <th style={styles.th}>Amount Status</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -222,72 +229,77 @@ function App() {
                     ))
                 )}
             </div>
-            <p style={{ color: '#f5f1f1ff' }}>FINES WILL BE UPDATED FROM NEXT SEMESTER FEES</p>
+           
            
           </>
             ):(
-
-              <>
-            <p style={{ fontSize: '1.2em', color: '#007bff' }}>
-              Total Active Rentals.
-            </p>
-
+        // --- ADMIN VIEW ---
+        <>
+            <p style={{ fontSize: '1.2em', color: '#007bff' }}>Total Active Rentals</p>
             <div style={{ marginTop: '20px' }}>
-              {loans.length === 0 ? (
-                <p style={{ color: '#f5f1f1ff' }}>No items currently checked out.</p>
-              ) : (
                 <table style={styles.table}>
-                  <thead>
-                    <tr>
-                      <th style={styles.th}>Title</th>
-                      <th style={styles.th}>Author</th>
-                      <th style={styles.th}>Type</th>
-                      <th style={styles.th}>Due Date</th>
-                      <th style={styles.th}>Return Date</th>
-                      <th style={styles.th}>Fine Amount</th>
-                      <th style={styles.th}>Fine Status</th>
-                      <th style={styles.th}>Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {loans.map((loan, index) => (
-                      <tr key={index}>
-                        <td style={styles.td}>{loan.Title}</td> 
-                        <td style={styles.td}>{loan.Author}</td> 
-                        <td style={styles.td}>{loan.TypeName}</td> 
-                        <td style={styles.td}>{loan.DueDate}</td>
-                        <td style={styles.td}>
-                            {loan.ReturnDate ? (
-                                <span style={{color: 'green', fontWeight: 'bold'}}>{loan.ReturnDate}</span>
-                            ) : (
-                                <span style={{color: '#d9534f'}}>Pending</span>
-                            )}
-                        </td>
-
-                        <td style={styles.td}>{loan.Amount}</td>
-                        <td style={styles.td}>{loan.Status}</td>
-                        <td style={styles.td}>
-                          {!loan.ReturnDate ? (
-                              <button 
-                                onClick={() => updateReturn(loan.LoanID, "Return",loan.ItemID)} 
-                                style={styles.updateButton}
-                              >
-                                Return
-                              </button>
-                          ) : (
-                              <span style={{color: '#888'}}>Locked</span>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
+                    <thead>
+                        <tr>
+                            <th style={styles.th}>Title</th>
+                            <th style={styles.th}>Author</th>
+                            <th style={styles.th}>Type</th>
+                            <th style={styles.th}>Due Date</th>
+                            <th style={styles.th}>Return Date</th>
+                            <th style={styles.th}>Amount</th>
+                            <th style={styles.th}>Amount Status</th>
+                            <th style={styles.th}>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {loans.map((loan, i) => (
+                            <tr key={i}>
+                                <td style={styles.td}>{loan.Title}</td>
+                                <td style={styles.td}>{loan.Author}</td>
+                                <td style={styles.td}>{loan.TypeName}</td>
+                                <td style={styles.td}>{loan.DueDate}</td>
+                                <td style={styles.td}>
+                                          {loan.ReturnDate ? (
+                                              <span style={{color: 'green', fontWeight: 'bold'}}>{loan.ReturnDate}</span>
+                                          ) : (
+                                              <span style={{color: '#d9534f'}}>Pending</span>
+                                          )}
+                                </td>
+                                <td style={styles.td}>{loan.Amount}</td>
+                                <td style={{...styles.td, color: loan.Status === 'Paid' ? 'green' : 'red'}}>
+                                    {loan.Status}
+                                </td>
+                                <td style={styles.td}>
+                                  {!loan.ReturnDate ? (
+                                      <button 
+                                        onClick={() => updateReturn(loan.LoanID, "Return",loan.ItemID)} 
+                                        style={styles.updateButton}
+                                      >
+                                        Return
+                                      </button>
+                                  ) : (
+                                      <span style={{color: '#888'}}>Locked</span>
+                                  )}
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
                 </table>
-              )}
-              </div>
-              </>
-              )}
-
             </div>
+
+            {/* ADMIN DELETE BOOKS */}
+            <p style={{ fontSize: '1.2em', color: '#d9534f', marginTop: '40px' }}>Manage Inventory (Delete Books)</p>
+            <div style={{ marginTop: '20px', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '15px' }}>
+                {books.map((book, i) => (
+                    <div key={i} style={styles.bookCard}>
+                        <h4 style={{margin: '0 0 10px 0'}}>{book.Title}</h4>
+                        <p style={{fontSize: '0.9em', color: '#666'}}>{book.Author}</p>
+                        <button onClick={() => handleDeleteBook(book.ItemID)} style={{...styles.updateButton, backgroundColor: '#d9534f'}}>Delete</button>
+                    </div>
+                ))}
+            </div>
+        </>
+      )}
+    </div>
   );
 }
 // Simple inline styles for better visuals
