@@ -12,9 +12,27 @@ function App() {
   const [error, setError] = useState('')
   const [userId, setUserId] = useState(null)
   const [loans,setLoans] = useState([])
-  const [command, setCommand] = useState('')
+  const [books, setBooks] = useState([])
 
+  useEffect(() => {
+    if (userId) {
+        fetchLoans();
+        fetchCatalog(); 
+    }
+  }, [userId])
+  
+  const fetchLoans = () => {
+    axios.get(`${API_BASE_URL}/my_loans/${userId}`)
+         .then(res => setLoans(res.data))
+         .catch(err => console.error(err));
+  }
 
+  const fetchCatalog = () => {
+      axios.get(`${API_BASE_URL}/catalogue`)
+        .then(res => setBooks(res.data))
+        .catch(err => console.error("Error fetching catalog:", err));
+  }
+  
   useEffect(() => {
     const loggedInUser = localStorage.getItem("user");
     const loggedInUserId = localStorage.getItem("userId");
@@ -69,36 +87,52 @@ function App() {
     setUserId(null)
     setLoans([])
     setUsername('')
+    setBooks([])
     setPassword('')
     localStorage.removeItem("user");
     localStorage.removeItem("userId");
   }
 
-  const updateReturn = async(id,command) =>{
+
+  const updateReturn = async(loan_id,command,item_id) =>{
     setError('')  
     try{
       const response = await axios.post(`${API_BASE_URL}/CRUD/admin_user`,{
         command: command,
-        loan_id: id,
+        loan_id: loan_id,
+        item_id: item_id
       })
     if (response.data.status == 'success'){
       alert("Book returned!")
-    const newDate = response.data.returned_date;
-        setLoans(prevLoans => prevLoans.map(loan => {
+      const newDate = response.data.current_date;
+      setLoans(prevLoans => prevLoans.map(loan => {
             if (loan.LoanID === id) {
                 return { ...loan, ReturnDate: newDate };
             }
             return loan;
-        }))}
-    else{
-        setError(`Update failed:${response.data.message}`)
+        }))
+        //fetchCatalog();
+      }else{
+            setError(`Update failed:${response.data.message}`)
+          }
+        }
+        catch (err) {
+          setError('Update Failed. Check the console.')
+          console.error("Update API Error:",err)
+        }
       }
-    }
-    catch (err) {
-      setError('Update Failed. Check the console.')
-      console.error("Update API Error:",err)
-    }
+
+  const handleBorrow = async(item_id,default_period,) => {
+      try {
+          const res = await axios.post(`${API_BASE_URL}/checkout`, { user_id: userId, item_id: item_id,default_period:default_period});
+          if (res.data.status === 'success') {
+              alert("Book Borrowed Successfully!");
+              fetchLoans(); 
+              fetchCatalog(); 
+          }
+      } catch (err) { alert("Checkout failed") }
   }
+
   if (!user) {
     return (
       <div style={styles.container}>
@@ -154,6 +188,9 @@ function App() {
                     <th style={styles.th}>Author</th>
                     <th style={styles.th}>Type</th>
                     <th style={styles.th}>Due Date</th>
+                    <th style={styles.th}>Return Date</th>
+                    <th style={styles.th}>Fine Amount</th>
+                    <th style={styles.th}>Fine Status</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -163,12 +200,30 @@ function App() {
                       <td style={styles.td}>{loan.Author}</td>
                       <td style={styles.td}>{loan.TypeName}</td>
                       <td style={styles.td}>{loan.DueDate}</td>
+                      <td style={styles.td}>{loan.ReturnDate}</td>
+                      <td style={styles.td}>{loan.Amount}</td>
+                      <td style={styles.td}>{loan.Status}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             )}
             </div>
+            <p style={{ fontSize: '1.2em', color: '#007bff', marginTop: '40px' }}>Available Books</p>
+            <div style={{ marginTop: '20px', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '15px' }}>
+                {books.length === 0 ? <p style={{ color: '#666' }}>No books available.</p> : (
+                    books.map((book, i) => (
+                        <div key={i} style={styles.bookCard}>
+                            <h4 style={{margin: '0 0 10px 0'}}>{book.Title}</h4>
+                            <p style={{fontSize: '0.9em', color: '#666'}}>{book.Author}</p>
+                            <p style={{fontSize: '0.8em'}}>{book.TypeName}</p>
+                            <button onClick={() => handleBorrow(book.ItemID,book.DefaultLoanPeriodDays)} style={styles.updateButton}>Borrow</button>
+                        </div>
+                    ))
+                )}
+            </div>
+            <p style={{ color: '#f5f1f1ff' }}>FINES WILL BE UPDATED FROM NEXT SEMESTER FEES</p>
+           
           </>
             ):(
 
@@ -189,6 +244,8 @@ function App() {
                       <th style={styles.th}>Type</th>
                       <th style={styles.th}>Due Date</th>
                       <th style={styles.th}>Return Date</th>
+                      <th style={styles.th}>Fine Amount</th>
+                      <th style={styles.th}>Fine Status</th>
                       <th style={styles.th}>Action</th>
                     </tr>
                   </thead>
@@ -207,11 +264,12 @@ function App() {
                             )}
                         </td>
 
-                       
+                        <td style={styles.td}>{loan.Amount}</td>
+                        <td style={styles.td}>{loan.Status}</td>
                         <td style={styles.td}>
                           {!loan.ReturnDate ? (
                               <button 
-                                onClick={() => updateReturn(loan.LoanID, "UPDATE")} 
+                                onClick={() => updateReturn(loan.LoanID, "Return",loan.ItemID)} 
                                 style={styles.updateButton}
                               >
                                 Return
@@ -295,6 +353,12 @@ const styles = {
     border: '1px solid #6c3838ff',
     backgroundColor: '#007bff',
     cursor: 'pointer',
-  }
+  },
+  bookCard: { 
+    border: '1px solid #eee', 
+    padding: '15px', 
+    borderRadius: '8px', 
+    textAlign: 'center', 
+    boxShadow: '0 2px 5px rgba(0,0,0,0.05)' }
 }
 export default App;
