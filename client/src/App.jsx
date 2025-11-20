@@ -12,6 +12,18 @@ function App() {
   const [error, setError] = useState('')
   const [userId, setUserId] = useState(null)
   const [loans,setLoans] = useState([])
+  const [command, setCommand] = useState('')
+
+
+  useEffect(() => {
+    const loggedInUser = localStorage.getItem("user");
+    const loggedInUserId = localStorage.getItem("userId");
+    
+    if (loggedInUser && loggedInUserId) {
+      setUser(loggedInUser);
+      setUserId(loggedInUserId);
+    }
+  }, []);
 
   useEffect(() => {
     if (userId) {
@@ -38,6 +50,8 @@ function App() {
     if (response.data.status == 'success'){
       setUser(response.data.username)
       setUserId(response.data.user_id)
+      localStorage.setItem("user", response.data.username);
+      localStorage.setItem("userId", response.data.user_id);
     } else{
       setError('Login failed: ', response.data.message)
     }}
@@ -56,6 +70,34 @@ function App() {
     setLoans([])
     setUsername('')
     setPassword('')
+    localStorage.removeItem("user");
+    localStorage.removeItem("userId");
+  }
+
+  const updateReturn = async(id,command) =>{
+    setError('')  
+    try{
+      const response = await axios.post(`${API_BASE_URL}/CRUD/admin_user`,{
+        command: command,
+        loan_id: id,
+      })
+    if (response.data.status == 'success'){
+      alert("Book returned!")
+    const newDate = response.data.returned_date;
+        setLoans(prevLoans => prevLoans.map(loan => {
+            if (loan.LoanID === id) {
+                return { ...loan, ReturnDate: newDate };
+            }
+            return loan;
+        }))}
+    else{
+        setError(`Update failed:${response.data.message}`)
+      }
+    }
+    catch (err) {
+      setError('Update Failed. Check the console.')
+      console.error("Update API Error:",err)
+    }
   }
   if (!user) {
     return (
@@ -108,7 +150,7 @@ function App() {
               <table style={styles.table}>
                 <thead>
                   <tr>
-                    <th style={styles.th}>Title</th>
+                    <th style={styles.th}>Title</th> 
                     <th style={styles.th}>Author</th>
                     <th style={styles.th}>Type</th>
                     <th style={styles.th}>Due Date</th>
@@ -146,15 +188,38 @@ function App() {
                       <th style={styles.th}>Author</th>
                       <th style={styles.th}>Type</th>
                       <th style={styles.th}>Due Date</th>
+                      <th style={styles.th}>Return Date</th>
+                      <th style={styles.th}>Action</th>
                     </tr>
                   </thead>
                   <tbody>
                     {loans.map((loan, index) => (
                       <tr key={index}>
-                        <td style={styles.td}>{loan.Title}</td>
-                        <td style={styles.td}>{loan.Author}</td>
-                        <td style={styles.td}>{loan.TypeName}</td>
+                        <td style={styles.td}>{loan.Title}</td> 
+                        <td style={styles.td}>{loan.Author}</td> 
+                        <td style={styles.td}>{loan.TypeName}</td> 
                         <td style={styles.td}>{loan.DueDate}</td>
+                        <td style={styles.td}>
+                            {loan.ReturnDate ? (
+                                <span style={{color: 'green', fontWeight: 'bold'}}>{loan.ReturnDate}</span>
+                            ) : (
+                                <span style={{color: '#d9534f'}}>Pending</span>
+                            )}
+                        </td>
+
+                       
+                        <td style={styles.td}>
+                          {!loan.ReturnDate ? (
+                              <button 
+                                onClick={() => updateReturn(loan.LoanID, "UPDATE")} 
+                                style={styles.updateButton}
+                              >
+                                Return
+                              </button>
+                          ) : (
+                              <span style={{color: '#888'}}>Locked</span>
+                          )}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -218,6 +283,13 @@ const styles = {
     marginBottom: '20px',
   },
   logoutButton: {
+    padding: '8px 15px',
+    borderRadius: '5px',
+    border: '1px solid #6c3838ff',
+    backgroundColor: '#007bff',
+    cursor: 'pointer',
+  },
+  updateButton: {
     padding: '8px 15px',
     borderRadius: '5px',
     border: '1px solid #6c3838ff',

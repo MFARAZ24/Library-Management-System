@@ -1,5 +1,6 @@
 from flask import Flask,jsonify,request
 from flask_cors import CORS
+from datetime import datetime
 import sqlite3
 
 app = Flask(__name__)
@@ -46,6 +47,7 @@ def my_loans(user_id):
                     T.TypeName,
                     L.CheckoutDate,
                     L.DueDate
+                    L.ReturnDate 
                 FROM Loans L
                 JOIN Items I ON L.ItemID = I.ItemID
                 JOIN ItemTypes T ON I.ItemTypeID = T.ItemTypeID
@@ -66,11 +68,13 @@ def my_loans(user_id):
         try:
             loans = conn.execute("""
                 SELECT
+                    L.LoanID,
                     I.Title,
                     I.Author,
                     T.TypeName,
                     L.CheckoutDate,
-                    L.DueDate
+                    L.DueDate,
+                    L.ReturnDate                
                 FROM Loans L
                 JOIN Items I ON L.ItemID = I.ItemID
                 JOIN ItemTypes T ON I.ItemTypeID = T.ItemTypeID
@@ -86,5 +90,39 @@ def my_loans(user_id):
             return jsonify({"error": "Database query failed"}), 500
         finally:
             conn.close()
+
+@app.route("/api/CRUD/admin_user",methods=['POST'])
+def CRUD():
+    data = request.get_json()
+    if not data:
+        return jsonify({"status":"error","message":"No data provided"}),400
+    conn = db_connection()
+    #data = request.get("data_changes")
+    command = data.get("command")
+    loan_id = data.get("loan_id")
+    current_date = datetime.today().strftime('%Y-%m-%d')
+    
+   
+    try:
+
+        if command == "UPDATE":
+            update = conn.execute("""
+                                  UPDATE Loans
+                                  SET ReturnDate = ?
+                                  WHERE LoanID = ?
+                                  
+                                  """,(current_date,loan_id))
+            conn.commit()
+            if update.rowcount == 0:
+                return jsonify({"status":"error","message":"LoanID invalid or Already returned Book","returned_date": current_date}),404
+            return jsonify({"status":"success","message":"Return Date Has been updated"})
+    except sqlite3.OperationalError as e:
+        print(f"Database error: {e}")
+        return jsonify({"error": "Database query failed"}), 500
+    finally:
+        conn.close()
+
+    
+
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
