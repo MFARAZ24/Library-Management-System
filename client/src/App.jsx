@@ -2,6 +2,11 @@ import React,{ useState,useEffect } from 'react'
 import './App.css'
 import axios from 'axios'
 
+import { Pie } from 'react-chartjs-2';
+import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
+
+ChartJS.register(ArcElement, Tooltip, Legend);
+
 const API_BASE_URL = 'http://127.0.0.1:5000/api'
 
 function App() {
@@ -13,6 +18,7 @@ function App() {
   const [userId, setUserId] = useState(null)
   const [loans,setLoans] = useState([])
   const [books, setBooks] = useState([])
+  const [chartData, setChartData] = useState(null)
 
 
   useEffect(() => {
@@ -29,7 +35,8 @@ function App() {
   useEffect(() => {
     if (userId) {
         fetchLoans();
-        fetchCatalog(); 
+        fetchCatalog();
+        if (username === 'admin_user') fetchStats(); 
     }
   }, [userId])
   
@@ -45,6 +52,19 @@ function App() {
         .catch(err => console.error("Error fetching catalog:", err));
   }
   
+  const fetchStats = () => {
+    axios.get(`${API_BASE_URL}/stats`).then(res => {
+        setChartData({
+            labels: res.data.map(item => item.label), 
+            datasets: [{
+                label: 'Books Count',
+                data: res.data.map(item => item.value),
+                backgroundColor: ['#28a745', '#dc3545', '#4335dcff'], 
+                borderWidth: 1,
+            }]
+        });
+    });
+  }
   
   const handleLogin = async(e) => {
     e.preventDefault()
@@ -80,6 +100,7 @@ function App() {
     setUsername('')
     setBooks([])
     setPassword('')
+    setChartData(null);
     localStorage.removeItem("user");
     localStorage.removeItem("userId");
   }
@@ -103,6 +124,7 @@ function App() {
             return loan;
         }))
         fetchCatalog();
+        if (username === 'admin_user') fetchStats();
         fetchLoans();
       }else{
             setError(`Update failed:${response.data.message}`)
@@ -133,7 +155,7 @@ function App() {
           if (res.data.status === 'success') {
               alert("Book Deleted!");
               fetchCatalog();
-              //if (username === 'admin_user') fetchStats();
+              if (username === 'admin_user') fetchStats();
           }
       } catch (err) { 
           alert(err.response?.data?.message || "Delete failed");
@@ -233,8 +255,20 @@ function App() {
            
           </>
             ):(
-        // --- ADMIN VIEW ---
+        
         <>
+            <p style={{ fontSize: '1.2em', color: '#007bff' }}>Inventory Status</p>
+            
+            
+            {chartData && (
+                <div style={{height: '300px', marginBottom: '40px', display: 'flex', justifyContent: 'center'}}>
+                    <div style={{width: '300px'}}>
+                        <Pie data={chartData} />
+                    </div>
+                </div>
+            )}
+
+
             <p style={{ fontSize: '1.2em', color: '#007bff' }}>Total Active Rentals</p>
             <div style={{ marginTop: '20px' }}>
                 <table style={styles.table}>
